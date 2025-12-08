@@ -10,16 +10,29 @@ Bu proje, Swift ve SwiftUI kullanılarak geliştirilmiş, terminal üzerinden ko
 
 ## Kurulum ve Çalıştırma (MacOS)
 
-1. Terminali açın ve bu klasöre gidin.
+1. Terminali açın ve bu projeyi klonlayın:
+   ```bash
+   git clone https://github.com/00gxd14g/MacRecovery.git
+   cd MacRecovery
+   ```
+
 2. Kurulum scriptini çalıştırın:
    ```bash
    ./install.sh
    ```
+
 3. Script projeyi derleyecek ve size çalıştırmak isteyip istemediğinizi soracaktır.
+
 4. Daha sonra tekrar çalıştırmak için sadece şu komutu kullanabilirsiniz:
    ```bash
    ./MacRecoveryApp
    ```
+
+## Testleri Çalıştırma
+Proje temel unit testler içerir. Testleri çalıştırmak için:
+```bash
+swift test
+```
 
 ## Önemli Not: Disk Erişim İzinleri
 MacOS güvenlik önlemleri nedeniyle, uygulamanın dosyalara erişebilmesi için "Full Disk Access" (Tam Disk Erişimi) iznine ihtiyacı olabilir.
@@ -32,3 +45,6 @@ Uygulamayı terminalden başlattığınızda, terminalin (`iTerm` veya `Terminal
 ## Gereksinimler
 - MacOS 11.0 (Big Sur) veya üzeri.
 - Xcode Command Line Tools (`xcode-select --install` ile yüklenebilir).
+
+## Lisans
+Bu proje MIT Lisansı ile lisanslanmıştır. Detaylar için `LICENSE` dosyasına bakınız.
