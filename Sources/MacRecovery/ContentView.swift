@@ -1,143 +1,140 @@
+import AppKit
 import SwiftUI
-import Foundation
 
 struct ContentView: View {
-    @State private var sourcePath: String = ""
-    @State private var destinationPath: String = ""
-    @State private var outputLog: String = "Hazır... (Lütfen Full Disk Access izniniz olduğundan emin olun)"
-    @State private var isBackingUp: Bool = false
-    @State private var progress: Double = 0.0
+    @StateObject private var viewModel = BackupViewModel()
 
     var body: some View {
-        VStack(spacing: 20) {
-            Text("MacOS Hızlı Yedekleyici")
-                .font(.largeTitle)
-                .fontWeight(.bold)
-                .padding(.top)
+        VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("MacRecovery")
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
 
-            // Kaynak Seçimi
-            VStack(alignment: .leading) {
-                Text("Kaynak Klasör:")
-                    .font(.headline)
-                HStack {
-                    TextField("/Users/kullanici/Belgeler", text: $sourcePath)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                    Button(action: { selectFolder { path in sourcePath = path } }) {
-                        Image(systemName: "folder")
-                        Text("Seç")
-                    }
-                }
-            }
-            .padding(.horizontal)
-
-            // Hedef Seçimi
-            VStack(alignment: .leading) {
-                Text("Hedef Disk/Klasör:")
-                    .font(.headline)
-                HStack {
-                    TextField("/Volumes/YedekDiski", text: $destinationPath)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                    Button(action: { selectFolder { path in destinationPath = path } }) {
-                        Image(systemName: "externaldrive")
-                        Text("Seç")
-                    }
-                }
-            }
-            .padding(.horizontal)
-
-            Divider()
-
-            // Log Ekranı
-            VStack(alignment: .leading) {
-                Text("İşlem Günlüğü:")
-                    .font(.caption)
+                Text("Rsync tabanlı hızlı yedekleme aracı")
                     .foregroundColor(.secondary)
-                ScrollView {
-                    Text(outputLog)
-                        .font(.system(.body, design: .monospaced))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(8)
-                }
-                .background(Color(NSColor.textBackgroundColor))
-                .cornerRadius(8)
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.gray.opacity(0.3), lineWidth: 1))
             }
-            .frame(height: 200)
-            .padding(.horizontal)
 
-            // Başlat Butonu
-            Button(action: startBackup) {
-                HStack {
-                    if isBackingUp {
-                        ProgressView().controlSize(.small)
+            GroupBox(label: Label("Kaynak", systemImage: "folder")) {
+                HStack(spacing: 8) {
+                    TextField("Yedeklenecek klasör yolu...", text: $viewModel.sourcePath)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+
+                    Button("Seç...") { viewModel.pickSourceFolder() }
+                }
+                .padding(8)
+            }
+
+            GroupBox(label: Label("Hedef", systemImage: "externaldrive")) {
+                HStack(spacing: 8) {
+                    TextField("Yedekleme hedefi yolu...", text: $viewModel.destinationPath)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+
+                    Button("Seç...") { viewModel.pickDestinationFolder() }
+                }
+                .padding(8)
+            }
+
+            GroupBox(label: Label("Seçenekler", systemImage: "gearshape")) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Toggle("Kaynak klasörünü hedefin içine kopyala", isOn: $viewModel.copySourceFolderIntoDestination)
+                    Toggle("Hedefi kaynağa göre aynala (--delete)", isOn: $viewModel.mirrorDestination)
+                    Toggle("Dry run (sadece simülasyon)", isOn: $viewModel.dryRun)
+
+                    Text(viewModel.copySourceFolderIntoDestination
+                         ? "Kaynak klasörü, hedefin içinde ayrı bir klasör olarak oluşturulur."
+                         : "Kaynağın içeriği doğrudan hedefe kopyalanır.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+
+                    if viewModel.mirrorDestination {
+                        Text("Dikkat: Aynalama seçeneği hedefte kaynakta olmayan dosyaları silebilir.")
+                            .font(.caption)
+                            .foregroundColor(.orange)
                     }
-                    Text(isBackingUp ? "Yedekleniyor..." : "Yedeklemeyi Başlat")
-                        .fontWeight(.semibold)
-                }
-                .frame(width: 200, height: 40)
-            }
-            .disabled(sourcePath.isEmpty || destinationPath.isEmpty || isBackingUp)
-            .buttonStyle(.borderedProminent)
-            .padding(.bottom)
-        }
-        .frame(minWidth: 600, minHeight: 500)
-    }
 
-    // Klasör Seçme Fonksiyonu
-    func selectFolder(completion: @escaping (String) -> Void) {
-        let panel = NSOpenPanel()
-        panel.canChooseFiles = false
-        panel.canChooseDirectories = true
-        panel.allowsMultipleSelection = false
-        panel.prompt = "Klasörü Seç"
-        
-        panel.begin { response in
-            if response == .OK, let url = panel.url {
-                completion(url.path)
-            }
-        }
-    }
+                    if !viewModel.usedRsyncPath.isEmpty {
+                        Text("Rsync: \(viewModel.usedRsyncPath)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
 
-    // Yedekleme Mantığı (Rsync Wrapper)
-    func startBackup() {
-        guard !sourcePath.isEmpty && !destinationPath.isEmpty else { return }
-        
-        isBackingUp = true
-        outputLog = "Yedekleme başlatılıyor...\nKaynak: \(sourcePath)\nHedef: \(destinationPath)\n----------------------------------------\n"
-        
-        // Arka planda çalıştır (UI donmaması için)
-        DispatchQueue.global(qos: .userInitiated).async {
-            let task = Process()
-            // rsync genellikle /usr/bin/rsync konumundadır
-            task.executableURL = URL(fileURLWithPath: "/usr/bin/rsync")
-            
-            // -a: arşiv modu (izinleri korur)
-            // -v: verbose
-            // --progress: ilerleme
-            // --delete: kaynakta olmayanları hedefte de sil (opsiyonel, dikkatli kullanılmalı, buraya eklemiyorum güvenli olsun diye)
-            task.arguments = ["-av", "--progress", sourcePath, destinationPath]
-            
-            let pipe = Pipe()
-            task.standardOutput = pipe
-            task.standardError = pipe // Hataları da görelim
-            
-            do {
-                try task.run()
-                
-                let data = pipe.fileHandleForReading.readDataToEndOfFile()
-                if let output = String(data: data, encoding: .utf8) {
-                    DispatchQueue.main.async {
-                        self.outputLog += "\n" + output
-                        self.isBackingUp = false
-                        self.outputLog += "\n✅ Yedekleme Tamamlandı!"
+                    if viewModel.isBackingUp {
+                        if let progress = viewModel.progress {
+                            HStack(spacing: 8) {
+                                ProgressView(value: progress)
+                                    .frame(maxWidth: 220)
+                                Text("%\(Int(progress * 100))")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        } else {
+                            HStack(spacing: 8) {
+                                ProgressView()
+                                Text("Yedekleniyor...")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
                     }
                 }
-            } catch {
-                DispatchQueue.main.async {
-                    self.outputLog += "\n❌ Hata: \(error.localizedDescription)"
-                    self.isBackingUp = false
-                }
+                .padding(8)
             }
+
+            GroupBox(label: Label("İşlem Günlüğü", systemImage: "text.alignleft")) {
+                VStack(spacing: 8) {
+                    ScrollViewReader { proxy in
+                        ScrollView {
+                            Text(viewModel.outputLog)
+                                .font(.system(.body, design: .monospaced))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(8)
+                                .id("logBottom")
+                        }
+                        .frame(minHeight: 220)
+                        .background(Color(NSColor.textBackgroundColor))
+                        .cornerRadius(8)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                        )
+                        .onChange(of: viewModel.outputLog) { _ in
+                            DispatchQueue.main.async {
+                                proxy.scrollTo("logBottom", anchor: .bottom)
+                            }
+                        }
+                    }
+
+                    HStack(spacing: 8) {
+                        Button("Kopyala") { viewModel.copyLogToClipboard() }
+                        Button("Temizle") { viewModel.resetLog() }
+                        Spacer()
+                    }
+                }
+                .padding(8)
+            }
+
+            HStack {
+                Spacer()
+
+                if viewModel.isBackingUp {
+                    Button("İptal") { viewModel.cancelBackup() }
+                        .buttonStyle(.bordered)
+                }
+
+                Button("Yedeklemeyi Başlat") { viewModel.startBackup() }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(!viewModel.canStartBackup)
+            }
+        }
+        .padding(16)
+        .frame(minWidth: 720, minHeight: 640)
+        .alert(isPresented: $viewModel.isShowingAlert) {
+            Alert(
+                title: Text("Hata"),
+                message: Text(viewModel.alertMessage),
+                dismissButton: .default(Text("Tamam"))
+            )
         }
     }
 }

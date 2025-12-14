@@ -1,0 +1,8 @@
+* text=auto
+
+# Keep scripts and sources LF-only (macOS compatibility)
+*.sh text eol=lf
+*.swift text eol=lf
+*.md text eol=lf
+Package.swift text eol=lf
+

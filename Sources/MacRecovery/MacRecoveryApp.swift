@@ -6,6 +6,5 @@ struct MacRecoveryApp: App {
         WindowGroup {
             ContentView()
         }
-        .windowStyle(HiddenTitleBarWindowStyle()) // Optional: for a cleaner look
     }
 }

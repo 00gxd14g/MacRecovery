@@ -1,50 +1,57 @@
-# MacOS Hızlı Yedekleme Aracı
+# MacRecovery
 
-Bu proje, Swift ve SwiftUI kullanılarak geliştirilmiş, terminal üzerinden kolayca kurulup çalıştırılabilen bir macOS yedekleme aracıdır. `rsync` altyapısını kullanarak güvenli ve hızlı dosya transferi sağlar.
+[English README](README.en.md)
+
+SwiftUI arayüzüyle, `rsync` tabanlı hızlı bir macOS yedekleme aracıdır. Seçtiğiniz kaynak klasörü hedefe kopyalar, işlem sırasında canlı log gösterir ve istenirse işlemi iptal edebilirsiniz.
 
 ## Özellikler
-- **Basit Arayüz:** SwiftUI ile modern ve anlaşılır arayüz.
-- **Hızlı Yedekleme:** `rsync` ile sadece değişen dosyaları kopyalar (Incremental Backup).
-- **Log Takibi:** İşlem detaylarını anlık olarak görebilirsiniz.
-- **Kolay Kurulum:** Tek komutla derlenir ve çalışır.
+- Klasör seçimi (kaynak/hedef) için basit SwiftUI arayüzü
+- Canlı log akışı ve işlem iptali
+- Seçenekler:
+  - Kaynak klasörünü hedefin içine kopyalama / kaynağın içeriğini doğrudan hedefe kopyalama
+  - Aynalama modu (`--delete`) ile hedefi kaynakla eşitleme (dikkatli kullanın)
+  - Dry run (simülasyon) modu (`--dry-run`)
+- `rsync` yolu otomatik bulunur (Homebrew varsa öncelik verilir)
 
-## Kurulum ve Çalıştırma (MacOS)
+## Gereksinimler
+- macOS 11.0 (Big Sur) veya üzeri
+- Swift 5.5+ (Xcode 13+ veya Xcode Command Line Tools)
+- `rsync` (macOS’te varsayılan olarak bulunur; Homebrew rsync önerilir)
 
-1. Terminali açın ve bu projeyi klonlayın:
-   ```bash
-   git clone https://github.com/00gxd14g/MacRecovery.git
-   cd MacRecovery
-   ```
+## Kurulum
+```bash
+git clone https://github.com/00gxd14g/MacRecovery.git
+cd MacRecovery
+chmod +x install.sh
+./install.sh
+```
 
-2. Kurulum scriptini çalıştırın:
-   ```bash
-   ./install.sh
-   ```
+Kurulum scripti, `swift build -c release` ile derler ve çıktıyı proje köküne `./MacRecovery` olarak kopyalar.
 
-3. Script projeyi derleyecek ve size çalıştırmak isteyip istemediğinizi soracaktır.
+## Çalıştırma
+```bash
+./MacRecovery
+```
 
-4. Daha sonra tekrar çalıştırmak için sadece şu komutu kullanabilirsiniz:
-   ```bash
-   ./MacRecoveryApp
-   ```
+Alternatif:
+```bash
+swift run -c release
+```
 
-## Testleri Çalıştırma
-Proje temel unit testler içerir. Testleri çalıştırmak için:
+## Testler
 ```bash
 swift test
 ```
 
-## Önemli Not: Disk Erişim İzinleri
-MacOS güvenlik önlemleri nedeniyle, uygulamanın dosyalara erişebilmesi için "Full Disk Access" (Tam Disk Erişimi) iznine ihtiyacı olabilir.
+## Önemli Not: Tam Disk Erişimi
+macOS güvenlik önlemleri nedeniyle, bazı klasörleri yedeklemek için Terminal’in (veya uygulamanın) “Tam Disk Erişimi” izni gerekebilir.
 
-Uygulamayı terminalden başlattığınızda, terminalin (`iTerm` veya `Terminal.app`) disk erişim izni olması genellikle yeterlidir. Eğer "Operation not permitted" hatası alırsanız:
+“Operation not permitted” görürseniz:
+1. **Sistem Ayarları** → **Gizlilik ve Güvenlik** → **Tam Disk Erişimi**
+2. Kullandığınız Terminal uygulamasını (Terminal.app / iTerm) veya çalıştırdığınız binary’yi ekleyin.
 
-1. **Sistem Ayarları** > **Gizlilik ve Güvenlik** > **Tam Disk Erişimi** menüsüne gidin.
-2. Kullandığınız Terminal uygulamasını (veya derlenmiş `MacRecoveryApp` dosyasını) listeye ekleyin ve izin verin.
-
-## Gereksinimler
-- MacOS 11.0 (Big Sur) veya üzeri.
-- Xcode Command Line Tools (`xcode-select --install` ile yüklenebilir).
+## Güvenlik Notu (Aynalama / --delete)
+“Hedefi kaynağa göre aynala (--delete)” seçeneği, hedefte olup kaynakta olmayan dosyaları silebilir. Önce “Dry run” ile denemeniz önerilir.
 
 ## Lisans
-Bu proje MIT Lisansı ile lisanslanmıştır. Detaylar için `LICENSE` dosyasına bakınız.
+MIT — detaylar için `LICENSE`.
